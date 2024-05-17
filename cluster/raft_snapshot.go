@@ -40,7 +40,7 @@ func (s *Snapshot) Persist(sink raft.SnapshotSink) error {
 		if err != nil {
 			return err
 		}
-		for _, kv := range kvs {
+		for _, kv := range *kvs {
 			kvSnap := KVSnapshotModel{
 				Namespace: n,
 				Key:       kv.Key,
