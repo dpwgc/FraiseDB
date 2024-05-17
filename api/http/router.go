@@ -14,24 +14,24 @@ func InitRouter() error {
 
 	r := httprouter.New()
 
-	r.GET("/v2/health", getHealth)
-	r.GET("/v2/config", getConfig)
+	r.GET("/health", getHealth)
+	r.GET("/config", getConfig)
 
-	r.POST("/v2/node", addNode)
-	r.DELETE("/v2/node/:endpoint", removeNode)
-	r.GET("/v2/nodes", listNode)
-	r.GET("/v2/leader", getLeader)
+	r.POST("/node", addNode)
+	r.DELETE("/node/:endpoint", removeNode)
+	r.GET("/nodes", listNode)
+	r.GET("/leader", getLeader)
 
-	r.POST("/v2/namespace/:namespace", createNamespace)
-	r.GET("/v2/namespaces", listNamespace)
-	r.DELETE("/v2/namespace/:namespace", deleteNamespace)
+	r.POST("/namespace/:namespace", createNamespace)
+	r.GET("/namespaces", listNamespace)
+	r.DELETE("/namespace/:namespace", deleteNamespace)
 
-	r.PUT("/v2/kv/:namespace/:key", putKV)
-	r.GET("/v2/kv/:namespace/:key", getKV)
-	r.DELETE("/v2/kv/:namespace/:key", deleteKV)
-	r.GET("/v2/kvs/:namespace/:keyPrefix", listKV)
+	r.PUT("/kv/:namespace/:key", putKV)
+	r.GET("/kv/:namespace/:key", getKV)
+	r.DELETE("/kv/:namespace/:key", deleteKV)
+	r.GET("/kvs/:namespace/:keyPrefix", listKV)
 
-	r.GET("/v2/subscribe/:namespace/:keyPrefix/:clientId", subscribe)
+	r.GET("/subscribe/:namespace/:keyPrefix/:clientId", subscribe)
 
 	initConsumer()
 	err := http.ListenAndServe(port, r)
