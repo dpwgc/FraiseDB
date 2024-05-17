@@ -1,4 +1,4 @@
-package http_v2
+package http
 
 import (
 	"encoding/json"

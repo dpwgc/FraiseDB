@@ -23,12 +23,9 @@ type StoreConfig struct {
 }
 
 // InitConfig 加载配置
-func InitConfig() {
+func InitConfig() error {
 	localConfigBytes := loadConfigFile("./config.yaml")
-	err := yaml.Unmarshal(localConfigBytes, &config)
-	if err != nil {
-		panic(err)
-	}
+	return yaml.Unmarshal(localConfigBytes, &config)
 }
 
 func Config() ConfigModel {

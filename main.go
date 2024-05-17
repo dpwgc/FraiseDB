@@ -1,14 +1,34 @@
 package main
 
 import (
-	"fraisedb/api/http/v2"
+	"fmt"
+	"fraisedb/api/http"
 	"fraisedb/base"
-	"fraisedb/service"
+	"fraisedb/core"
+	"time"
 )
 
 func main() {
-	base.InitConfig()
-	base.InitLog()
-	service.StartNode()
-	http_v2.InitRouter()
+	err := base.InitConfig()
+	if err != nil {
+		fmt.Println("init log error:", err)
+		time.Sleep(5 * time.Second)
+		panic(err)
+	}
+	err = base.InitLog()
+	if err != nil {
+		fmt.Println("init log error:", err)
+		time.Sleep(5 * time.Second)
+		panic(err)
+	}
+	err = core.InitNode()
+	if err != nil {
+		base.LogHandler.Println(base.LogErrorTag, err)
+		return
+	}
+	err = http.InitRouter()
+	if err != nil {
+		base.LogHandler.Println(base.LogErrorTag, err)
+		return
+	}
 }

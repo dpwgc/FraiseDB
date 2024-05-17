@@ -1,10 +1,10 @@
-package http_v2
+package http
 
 import (
 	"encoding/json"
 	"fmt"
 	"fraisedb/base"
-	"fraisedb/service"
+	"fraisedb/core"
 	"github.com/julienschmidt/httprouter"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"net/http"
@@ -79,7 +79,7 @@ func addNode(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		return
 	}
 
-	err = service.AddNode(command.Addr, command.TcpPort, command.HttpPort)
+	err = core.AddNode(command.Addr, command.TcpPort, command.HttpPort)
 	if err != nil {
 		result(w, base.ServiceLayerErrorCode, nil, err)
 		return
@@ -89,7 +89,7 @@ func addNode(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 
 func removeNode(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	address := p.ByName("endpoint")
-	err := service.RemoveNode(address)
+	err := core.RemoveNode(address)
 	if err != nil {
 		result(w, base.ServiceLayerErrorCode, nil, err)
 		return
@@ -98,7 +98,7 @@ func removeNode(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 }
 
 func getLeader(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	leader := service.GetLeader()
+	leader := core.GetLeader()
 	if len(leader) == 0 {
 		result(w, base.ServiceLayerErrorCode, nil, errors.New("missing leader"))
 		return
@@ -107,12 +107,12 @@ func getLeader(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 }
 
 func listNode(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	ns := service.ListNode()
+	ns := core.ListNode()
 	result(w, base.SuccessCode, ns, nil)
 }
 
 func listNamespace(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	ns := service.ListNamespace()
+	ns := core.ListNamespace()
 	result(w, base.SuccessCode, ns, nil)
 }
 
@@ -123,7 +123,7 @@ func createNamespace(w http.ResponseWriter, r *http.Request, p httprouter.Params
 		return
 	}
 	namespace := p.ByName("namespace")
-	err = service.CreateNamespace(namespace)
+	err = core.CreateNamespace(namespace)
 	if err != nil {
 		result(w, base.ServiceLayerErrorCode, nil, err)
 		return
@@ -138,7 +138,7 @@ func deleteNamespace(w http.ResponseWriter, r *http.Request, p httprouter.Params
 		return
 	}
 	namespace := p.ByName("namespace")
-	err = service.DeleteNamespace(namespace)
+	err = core.DeleteNamespace(namespace)
 	if err != nil {
 		result(w, base.ServiceLayerErrorCode, nil, err)
 		return
@@ -163,7 +163,7 @@ func putKV(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	if command.TTL > 0 {
 		ddl = time.Now().Unix() + command.TTL
 	}
-	err = service.PutKV(namespace, key, command.SaveType, command.Value, command.Incr, ddl)
+	err = core.PutKV(namespace, key, command.SaveType, command.Value, command.Incr, ddl)
 	if err != nil {
 		result(w, base.ServiceLayerErrorCode, nil, err)
 		return
@@ -174,7 +174,7 @@ func putKV(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 func getKV(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	namespace := p.ByName("namespace")
 	key := p.ByName("key")
-	value, err := service.GetKV(namespace, key)
+	value, err := core.GetKV(namespace, key)
 	if err != nil {
 		result(w, base.ServiceLayerErrorCode, nil, err)
 		return
@@ -190,7 +190,7 @@ func deleteKV(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	}
 	namespace := p.ByName("namespace")
 	key := p.ByName("key")
-	err = service.DeleteKV(namespace, key)
+	err = core.DeleteKV(namespace, key)
 	if err != nil {
 		result(w, base.ServiceLayerErrorCode, nil, err)
 		return
@@ -213,7 +213,7 @@ func listKV(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		result(w, base.InterfaceLayerErrorCode, nil, err)
 		return
 	}
-	kvs, err := service.ListKV(namespace, keyPrefix, offset, count)
+	kvs, err := core.ListKV(namespace, keyPrefix, offset, count)
 	if err != nil {
 		result(w, base.ServiceLayerErrorCode, nil, err)
 		return
@@ -223,9 +223,9 @@ func listKV(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 
 func forwardToLeader(w http.ResponseWriter, r *http.Request) error {
 	// 如果该节点是leader，则无需转发请求
-	if service.GetLeader() == fmt.Sprintf("%s:%v", base.Config().Node.Addr, base.Config().Node.HttpPort) {
+	if core.GetLeader() == fmt.Sprintf("%s:%v", base.Config().Node.Addr, base.Config().Node.HttpPort) {
 		return nil
 	} else {
-		return base.HttpForward(w, r, fmt.Sprintf("http://%s%s", service.GetLeader(), r.URL.RequestURI()))
+		return base.HttpForward(w, r, fmt.Sprintf("http://%s%s", core.GetLeader(), r.URL.RequestURI()))
 	}
 }

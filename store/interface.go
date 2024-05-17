@@ -1,7 +1,7 @@
 package store
 
-func NewDB(path string) (DB, error) {
-	return newLevelDB(path)
+func NewDB() DB {
+	return newLevelDB()
 }
 
 type ValueModel struct {

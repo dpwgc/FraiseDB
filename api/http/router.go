@@ -1,4 +1,4 @@
-package http_v2
+package http
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 )
 
 // InitRouter 初始化HTTP路由
-func InitRouter() {
+func InitRouter() error {
 
 	port := fmt.Sprintf(":%v", base.Config().Node.HttpPort)
 
@@ -36,7 +36,7 @@ func InitRouter() {
 	initConsumer()
 	err := http.ListenAndServe(port, r)
 	if err != nil {
-		base.LogHandler.Println(base.LogErrorTag, err)
-		panic(err)
+		return err
 	}
+	return nil
 }

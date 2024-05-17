@@ -1,12 +1,11 @@
 package store
 
 import (
-	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
+	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"gopkg.in/yaml.v3"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -14,19 +13,17 @@ import (
 
 type levelDB struct {
 	DB
-	path  string
 	dbMap map[string]*leveldb.DB
 }
 
 var namespaceLock sync.Mutex
 
-func newLevelDB(path string) (DB, error) {
+func newLevelDB() DB {
 	s := &levelDB{
-		path:  path,
 		dbMap: make(map[string]*leveldb.DB, 100),
 	}
 	go backgroundCleanTask(s)
-	return s, nil
+	return s
 }
 
 func (s *levelDB) ListNamespace() []string {
@@ -44,7 +41,7 @@ func (s *levelDB) NamespaceNotExist(namespace string) bool {
 func (s *levelDB) CreateNamespace(namespace string) error {
 	if s.dbMap[namespace] == nil {
 		namespaceLock.Lock()
-		db, err := leveldb.OpenFile(fmt.Sprintf("%s/%s", s.path, namespace), nil)
+		db, err := leveldb.Open(storage.NewMemStorage(), nil)
 		if err != nil {
 			return err
 		}
@@ -58,10 +55,6 @@ func (s *levelDB) DeleteNamespace(namespace string) error {
 	if s.dbMap[namespace] != nil {
 		namespaceLock.Lock()
 		err := s.dbMap[namespace].Close()
-		if err != nil {
-			return err
-		}
-		err = os.RemoveAll(fmt.Sprintf("%s/%s", s.path, namespace))
 		if err != nil {
 			return err
 		}
@@ -79,11 +72,9 @@ func (s *levelDB) GetKV(namespace string, key string) (KvDTO, error) {
 	}
 	err = yaml.Unmarshal(value, &vm)
 	if err != nil {
-		backgroundDelKey(s.dbMap[namespace], key)
 		return KvDTO{}, err
 	}
 	if vm.DDL > 0 && time.Now().Unix() > vm.DDL {
-		backgroundDelKey(s.dbMap[namespace], key)
 		return KvDTO{}, nil
 	}
 	return KvDTO{
@@ -166,11 +157,9 @@ func (s *levelDB) ListKV(namespace string, keyPrefix string, offset int64, count
 		key := string(iter.Key())
 		err := yaml.Unmarshal(iter.Value(), &vm)
 		if err != nil {
-			backgroundDelKey(s.dbMap[namespace], key)
 			continue
 		}
 		if vm.DDL > 0 && time.Now().Unix() > vm.DDL {
-			backgroundDelKey(s.dbMap[namespace], key)
 			continue
 		}
 		// 到指定游标后再取值
