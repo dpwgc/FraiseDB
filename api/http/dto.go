@@ -14,20 +14,24 @@ type nodeCommand struct {
 }
 
 type kvCommand struct {
-	SaveType int    `json:"type"`
-	Value    string `json:"value"`
-	Incr     int64  `json:"incr"`
-	TTL      int64  `json:"ttl"`
+	Overwrite bool   `json:"overwrite"`
+	Value     string `json:"value"`
+	Incr      int64  `json:"incr"`
+	TTL       int64  `json:"ttl"`
 }
 
 func reply(w http.ResponseWriter, result any, err error) {
 	var res = make(map[string]any, 2)
 	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
 		res["error"] = err.Error()
 		base.LogHandler.Println(base.LogErrorTag, err)
-	}
-	if result != nil {
-		res["result"] = result
+	} else {
+		if result != nil {
+			res["result"] = result
+		} else {
+			w.WriteHeader(http.StatusNoContent)
+		}
 	}
 	marshal, _ := json.Marshal(res)
 	_, err = w.Write(marshal)

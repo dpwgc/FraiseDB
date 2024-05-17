@@ -1,9 +1,10 @@
 package cluster
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fraisedb/base"
 	"github.com/hashicorp/raft"
-	"gopkg.in/yaml.v3"
 )
 
 type Snapshot struct {
@@ -14,10 +15,10 @@ func newSnapshot() raft.FSMSnapshot {
 }
 
 type KVSnapshotModel struct {
-	Namespace string `yaml:"n"`
-	Key       string `yaml:"k"`
-	Value     string `yaml:"v"`
-	DDL       int64  `yaml:"d"`
+	Namespace string
+	Key       string
+	Value     string
+	DDL       int64
 }
 
 // Persist saves the FSM snapshot out to the given sink.
@@ -49,11 +50,13 @@ func (s *Snapshot) Persist(sink raft.SnapshotSink) error {
 			kvSnaps = append(kvSnaps, kvSnap)
 		}
 	}
-	marshal, err := yaml.Marshal(kvSnaps)
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	err = encoder.Encode(kvSnaps)
 	if err != nil {
 		return err
 	}
-	if _, err = sink.Write(marshal); err != nil {
+	if _, err = sink.Write(buffer.Bytes()); err != nil {
 		return err
 	}
 	if err = sink.Close(); err != nil {

@@ -1,11 +1,12 @@
 package store
 
 import (
+	"bytes"
+	"encoding/gob"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"gopkg.in/yaml.v3"
 	"strconv"
 	"sync"
 	"time"
@@ -70,7 +71,8 @@ func (s *levelDB) GetKV(namespace string, key string) (KvDTO, error) {
 	if err != nil {
 		return KvDTO{}, err
 	}
-	err = yaml.Unmarshal(value, &vm)
+	decoder := gob.NewDecoder(bytes.NewBuffer(value))
+	err = decoder.Decode(&vm)
 	if err != nil {
 		return KvDTO{}, err
 	}
@@ -84,55 +86,51 @@ func (s *levelDB) GetKV(namespace string, key string) (KvDTO, error) {
 	}, nil
 }
 
-func (s *levelDB) PutKV(namespace string, key string, saveType int, value string, incr int64, ddl int64) error {
+func (s *levelDB) PutKV(namespace string, key string, overwrite bool, value string, incr int64, ddl int64) error {
 	if s.dbMap[namespace] == nil {
 		return errors.New("namespace not exist")
 	}
-	// saveType=0：完全覆盖更新
-	// saveType=1：只更新值
-	// saveType=2：在原值基础上累加incr
-	// saveType=3：只重设过期时间
-	if saveType != 0 {
+	if !overwrite {
 		// 先查出当前value
 		kv, err := s.GetKV(namespace, key)
 		if err != nil {
 			return err
 		}
-		switch saveType {
-		case 1:
+		if len(value) > 0 {
 			kv.Value = value
-			break
-		case 2:
+		}
+		if ddl > 0 {
+			kv.DDL = ddl
+		}
+		if incr > 0 {
 			number, err := strconv.ParseInt(kv.Value, 10, 64)
 			if err != nil {
 				return err
 			}
 			number = number + incr
 			kv.Value = strconv.FormatInt(number, 10)
-			break
-		case 3:
-			kv.DDL = ddl
-			break
-		default:
-			return errors.New("save type error")
 		}
-		marshal, err := yaml.Marshal(ValueModel{
+		var buffer bytes.Buffer
+		encoder := gob.NewEncoder(&buffer)
+		err = encoder.Encode(ValueModel{
 			Value: kv.Value,
 			DDL:   kv.DDL,
 		})
 		if err != nil {
 			return err
 		}
-		return s.dbMap[namespace].Put([]byte(key), marshal, nil)
+		return s.dbMap[namespace].Put([]byte(key), buffer.Bytes(), nil)
 	} else {
-		marshal, err := yaml.Marshal(ValueModel{
+		var buffer bytes.Buffer
+		encoder := gob.NewEncoder(&buffer)
+		err := encoder.Encode(ValueModel{
 			Value: value,
 			DDL:   ddl,
 		})
 		if err != nil {
 			return err
 		}
-		return s.dbMap[namespace].Put([]byte(key), marshal, nil)
+		return s.dbMap[namespace].Put([]byte(key), buffer.Bytes(), nil)
 	}
 }
 
@@ -155,7 +153,8 @@ func (s *levelDB) ListKV(namespace string, keyPrefix string, offset int64, count
 	for iter.Next() {
 		vm := ValueModel{}
 		key := string(iter.Key())
-		err := yaml.Unmarshal(iter.Value(), &vm)
+		decoder := gob.NewDecoder(bytes.NewBuffer(iter.Value()))
+		err := decoder.Decode(&vm)
 		if err != nil {
 			continue
 		}
@@ -202,7 +201,8 @@ func backgroundClean(db *leveldb.DB) {
 	for iter.Next() {
 		vm := ValueModel{}
 		key := string(iter.Key())
-		err := yaml.Unmarshal(iter.Value(), &vm)
+		decoder := gob.NewDecoder(bytes.NewBuffer(iter.Value()))
+		err := decoder.Decode(&vm)
 		if err != nil {
 			backgroundDelKey(db, key)
 			continue

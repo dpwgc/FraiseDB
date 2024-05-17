@@ -73,7 +73,7 @@ func putKV(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	if command.TTL > 0 {
 		ddl = time.Now().Unix() + command.TTL
 	}
-	reply(w, nil, core.PutKV(p.ByName("namespace"), p.ByName("key"), command.SaveType, command.Value, command.Incr, ddl))
+	reply(w, nil, core.PutKV(p.ByName("namespace"), p.ByName("key"), command.Overwrite, command.Value, command.Incr, ddl))
 }
 
 func getKV(w http.ResponseWriter, r *http.Request, p httprouter.Params) {

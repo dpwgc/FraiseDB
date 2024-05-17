@@ -1,11 +1,12 @@
 package cluster
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fraisedb/base"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/raft"
 	raftBoltDB "github.com/hashicorp/raft-boltdb"
-	"gopkg.in/yaml.v3"
 	"net"
 	"os"
 	"sync"
@@ -110,31 +111,33 @@ func ListNode(node *raft.Raft) []NodeInfoModel {
 
 type ApplyLogModel struct {
 	// 0-删除key、1-新建key、10-删除namespace、11-新建namespace
-	Method    int    `yaml:"m"`
-	Namespace string `yaml:"n"`
-	Key       string `yaml:"k"`
-	SaveType  int    `yaml:"s"`
-	Value     string `yaml:"v"`
-	Incr      int64  `yaml:"i"`
-	DDL       int64  `yaml:"d"`
+	Method    int
+	Namespace string
+	Key       string
+	Overwrite bool
+	Value     string
+	Incr      int64
+	DDL       int64
 }
 
-func ApplyLog(node *raft.Raft, namespace string, method int, key string, saveType int, value string, incr int64, ddl int64) error {
+func ApplyLog(node *raft.Raft, namespace string, method int, key string, overwrite bool, value string, incr int64, ddl int64) error {
 	log := ApplyLogModel{
 		Method:    method,
 		Namespace: namespace,
 		Key:       key,
-		SaveType:  saveType,
+		Overwrite: overwrite,
 		Value:     value,
 		Incr:      incr,
 		DDL:       ddl,
 	}
-	marshal, err := yaml.Marshal(log)
+	var buffer bytes.Buffer
+	encoder := gob.NewEncoder(&buffer)
+	err := encoder.Encode(log)
 	if err != nil {
 		return err
 	}
 	node.ApplyLog(raft.Log{
-		Data: marshal,
+		Data: buffer.Bytes(),
 	}, base.ConnectTimeout30*time.Second)
 	return nil
 }
