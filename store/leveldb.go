@@ -65,21 +65,21 @@ func (s *levelDB) DeleteNamespace(namespace string) error {
 	return nil
 }
 
-func (s *levelDB) GetKV(namespace string, key string) (KvDTO, error) {
+func (s *levelDB) GetKV(namespace string, key string) (*KvDTO, error) {
 	vm := ValueModel{}
 	value, err := s.dbMap[namespace].Get([]byte(key), nil)
 	if err != nil {
-		return KvDTO{}, err
+		return nil, err
 	}
 	decoder := gob.NewDecoder(bytes.NewBuffer(value))
 	err = decoder.Decode(&vm)
 	if err != nil {
-		return KvDTO{}, err
+		return nil, err
 	}
 	if vm.DDL > 0 && time.Now().Unix() > vm.DDL {
-		return KvDTO{}, nil
+		return nil, nil
 	}
-	return KvDTO{
+	return &KvDTO{
 		Key:   key,
 		Value: vm.Value,
 		DDL:   vm.DDL,
@@ -141,7 +141,7 @@ func (s *levelDB) DeleteKV(namespace string, key string) error {
 	return s.dbMap[namespace].Delete([]byte(key), nil)
 }
 
-func (s *levelDB) ListKV(namespace string, keyPrefix string, offset int64, count int64) ([]KvDTO, error) {
+func (s *levelDB) ListKV(namespace string, keyPrefix string, offset int64, count int64) (*[]KvDTO, error) {
 	var o int64 = 0
 	var c int64 = 0
 	var kvs []KvDTO
@@ -178,7 +178,7 @@ func (s *levelDB) ListKV(namespace string, keyPrefix string, offset int64, count
 		})
 	}
 	iter.Release()
-	return kvs, nil
+	return &kvs, nil
 }
 
 func backgroundDelKey(db *leveldb.DB, key string) {

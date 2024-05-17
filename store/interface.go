@@ -20,8 +20,8 @@ type DB interface {
 	NamespaceNotExist(namespace string) bool
 	CreateNamespace(namespace string) error
 	DeleteNamespace(namespace string) error
-	GetKV(namespace string, key string) (KvDTO, error)
+	GetKV(namespace string, key string) (*KvDTO, error)
 	PutKV(namespace string, key string, overwrite bool, value string, incr int64, ddl int64) error
 	DeleteKV(namespace string, key string) error
-	ListKV(namespace string, keyPrefix string, offset int64, count int64) ([]KvDTO, error)
+	ListKV(namespace string, keyPrefix string, offset int64, count int64) (*[]KvDTO, error)
 }

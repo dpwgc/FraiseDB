@@ -82,6 +82,20 @@ func getKV(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		reply(w, nil, err)
 		return
 	}
+	reply(w, *value, nil)
+}
+
+func getNestedField(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	query, err := readNestedQuery(r)
+	if err != nil {
+		reply(w, nil, err)
+		return
+	}
+	value, err := core.GetNestedField(p.ByName("namespace"), p.ByName("key"), query.Path)
+	if err != nil {
+		reply(w, nil, err)
+		return
+	}
 	reply(w, value, nil)
 }
 
@@ -109,7 +123,7 @@ func listKV(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		reply(w, nil, err)
 		return
 	}
-	reply(w, kvs, nil)
+	reply(w, *kvs, nil)
 }
 
 func isLeader() bool {

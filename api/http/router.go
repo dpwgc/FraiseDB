@@ -30,6 +30,7 @@ func InitRouter() error {
 	r.GET("/kv/:namespace/:key", getKV)
 	r.DELETE("/kv/:namespace/:key", deleteKV)
 	r.GET("/kvs/:namespace/:keyPrefix", listKV)
+	r.POST("/extract/:namespace/:key", getNestedField)
 
 	r.GET("/subscribe/:namespace/:keyPrefix/:clientId", subscribe)
 

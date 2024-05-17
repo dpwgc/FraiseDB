@@ -20,6 +20,10 @@ type kvCommand struct {
 	TTL       int64  `json:"ttl"`
 }
 
+type nestedQuery struct {
+	Path []any `json:"path"`
+}
+
 func reply(w http.ResponseWriter, result any, err error) {
 	var res = make(map[string]any, 2)
 	if err != nil {
@@ -58,4 +62,14 @@ func readNodeCommand(r *http.Request) (nodeCommand, error) {
 	}
 	err = json.Unmarshal(body, &command)
 	return command, err
+}
+
+func readNestedQuery(r *http.Request) (nestedQuery, error) {
+	query := nestedQuery{}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return query, err
+	}
+	err = json.Unmarshal(body, &query)
+	return query, err
 }
