@@ -1,7 +1,6 @@
 package cluster
 
 import (
-	"fmt"
 	"fraisedb/base"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/raft"
@@ -84,7 +83,6 @@ func GetLeader(node *raft.Raft) string {
 
 type NodeInfoModel struct {
 	Endpoint string `json:"endpoint"`
-	Health   bool   `json:"health"`
 	Leader   bool   `json:"leader"`
 }
 
@@ -99,19 +97,9 @@ func ListNode(node *raft.Raft) []NodeInfoModel {
 	for _, v := range node.GetConfiguration().Configuration().Servers {
 		go func(v raft.Server) {
 			endpoint := string(v.ID)
-			health := false
-			leader := false
-			res, err := base.HttpGet(fmt.Sprintf("http://%s/v2/health", endpoint))
-			if err == nil && res != nil && string(res) == "1" {
-				health = true
-			}
-			if endpoint == leaderID {
-				leader = true
-			}
 			ns = append(ns, NodeInfoModel{
 				Endpoint: endpoint,
-				Health:   health,
-				Leader:   leader,
+				Leader:   endpoint == leaderID,
 			})
 			wg.Done()
 		}(v)

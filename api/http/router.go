@@ -10,7 +10,7 @@ import (
 // InitRouter 初始化HTTP路由
 func InitRouter() error {
 
-	port := fmt.Sprintf(":%v", base.Config().Node.HttpPort)
+	port := fmt.Sprintf(":%v", base.Config().Server.HttpPort)
 
 	r := httprouter.New()
 

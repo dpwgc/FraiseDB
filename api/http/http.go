@@ -1,231 +1,129 @@
 package http
 
 import (
-	"encoding/json"
 	"fmt"
 	"fraisedb/base"
 	"fraisedb/core"
 	"github.com/julienschmidt/httprouter"
-	"github.com/syndtr/goleveldb/leveldb/errors"
 	"net/http"
 	"strconv"
 	"time"
 )
 
 func getHealth(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	_, err := w.Write([]byte("1"))
-	if err != nil {
-		base.LogHandler.Println(base.LogErrorTag, err)
-	}
+	reply(w, nil, nil)
 }
 
 func getConfig(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	marshal, _ := json.Marshal(base.Config())
-	_, err := w.Write(marshal)
-	if err != nil {
-		base.LogHandler.Println(base.LogErrorTag, err)
-	}
+	reply(w, base.Config(), nil)
 }
 
 func addNode(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	command, err := readNodeCommand(r)
 	if err != nil {
-		result(w, base.InterfaceLayerErrorCode, nil, err)
+		reply(w, nil, err)
 		return
 	}
-
-	endpoint := fmt.Sprintf("%s:%v", command.Addr, command.HttpPort)
-
-	// 节点健康检查
-	healthRes, err := base.HttpGet(fmt.Sprintf("http://%s/v2/health", endpoint))
-	if err != nil {
-		result(w, base.ClusterInvocationErrorCode, nil, err)
-		return
-	}
-	if healthRes == nil || string(healthRes) != "1" {
-		result(w, base.ClusterInvocationErrorCode, nil, errors.New("the node is unhealthy"))
-		return
-	}
-
-	// 节点配置检查
-	configRes, err := base.HttpGet(fmt.Sprintf("http://%s/v2/config", endpoint))
-	if err != nil {
-		result(w, base.ClusterInvocationErrorCode, nil, err)
-		return
-	}
-	if configRes == nil || len(configRes) == 0 {
-		result(w, base.ClusterInvocationErrorCode, nil, errors.New("the configuration for the node is empty"))
-		return
-	}
-	nodeConfig := base.ConfigModel{}
-	err = json.Unmarshal(configRes, &nodeConfig)
-	if err != nil {
-		result(w, base.ClusterInvocationErrorCode, nil, err)
-		return
-	}
-	// 传入的ip地址必须与指定节点配置文件里的ip地址一致
-	if command.Addr != nodeConfig.Node.Addr {
-		result(w, base.ClusterInvocationErrorCode, nil, errors.New("the ip address configuration of the node does not match"))
-		return
-	}
-	// 传入的http端口号必须与指定节点配置文件里的http端口号一致
-	if command.HttpPort != nodeConfig.Node.HttpPort {
-		result(w, base.ClusterInvocationErrorCode, nil, errors.New("the http port configuration of the node does not match"))
-		return
-	}
-	// 传入的tcp端口号必须与指定节点配置文件里的tcp端口号一致
-	if command.TcpPort != nodeConfig.Node.TcpPort {
-		result(w, base.ClusterInvocationErrorCode, nil, errors.New("the tcp port configuration of the node does not match"))
-		return
-	}
-
-	err = core.AddNode(command.Addr, command.TcpPort, command.HttpPort)
-	if err != nil {
-		result(w, base.ServiceLayerErrorCode, nil, err)
-		return
-	}
-	result(w, base.SuccessCode, endpoint, nil)
+	reply(w, nil, core.AddNode(command.Addr, command.TcpPort, command.HttpPort))
 }
 
 func removeNode(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	address := p.ByName("endpoint")
-	err := core.RemoveNode(address)
-	if err != nil {
-		result(w, base.ServiceLayerErrorCode, nil, err)
-		return
-	}
-	result(w, base.SuccessCode, nil, nil)
+	reply(w, nil, core.RemoveNode(p.ByName("endpoint")))
 }
 
 func getLeader(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	leader := core.GetLeader()
-	if len(leader) == 0 {
-		result(w, base.ServiceLayerErrorCode, nil, errors.New("missing leader"))
-		return
-	}
-	result(w, base.SuccessCode, leader, nil)
+	reply(w, core.GetLeader(), nil)
 }
 
 func listNode(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	ns := core.ListNode()
-	result(w, base.SuccessCode, ns, nil)
+	reply(w, core.ListNode(), nil)
 }
 
 func listNamespace(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	ns := core.ListNamespace()
-	result(w, base.SuccessCode, ns, nil)
+	reply(w, core.ListNamespace(), nil)
 }
 
 func createNamespace(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	err := forwardToLeader(w, r)
-	if err != nil {
-		result(w, base.ClusterInvocationErrorCode, nil, err)
+	if isLeader() {
+		forwardToLeader(w, r)
 		return
 	}
-	namespace := p.ByName("namespace")
-	err = core.CreateNamespace(namespace)
-	if err != nil {
-		result(w, base.ServiceLayerErrorCode, nil, err)
-		return
-	}
-	result(w, base.SuccessCode, nil, nil)
+	reply(w, nil, core.CreateNamespace(p.ByName("namespace")))
 }
 
 func deleteNamespace(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	err := forwardToLeader(w, r)
-	if err != nil {
-		result(w, base.ClusterInvocationErrorCode, nil, err)
+	if isLeader() {
+		forwardToLeader(w, r)
 		return
 	}
-	namespace := p.ByName("namespace")
-	err = core.DeleteNamespace(namespace)
-	if err != nil {
-		result(w, base.ServiceLayerErrorCode, nil, err)
-		return
-	}
-	result(w, base.SuccessCode, nil, nil)
+	reply(w, nil, core.DeleteNamespace(p.ByName("namespace")))
 }
 
 func putKV(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	err := forwardToLeader(w, r)
-	if err != nil {
-		result(w, base.ClusterInvocationErrorCode, nil, err)
+	if isLeader() {
+		forwardToLeader(w, r)
 		return
 	}
-	namespace := p.ByName("namespace")
-	key := p.ByName("key")
 	command, err := readKVCommand(r)
 	if err != nil {
-		result(w, base.InterfaceLayerErrorCode, nil, err)
+		reply(w, nil, err)
 		return
 	}
 	var ddl int64 = 0
 	if command.TTL > 0 {
 		ddl = time.Now().Unix() + command.TTL
 	}
-	err = core.PutKV(namespace, key, command.SaveType, command.Value, command.Incr, ddl)
-	if err != nil {
-		result(w, base.ServiceLayerErrorCode, nil, err)
-		return
-	}
-	result(w, base.SuccessCode, nil, nil)
+	reply(w, nil, core.PutKV(p.ByName("namespace"), p.ByName("key"), command.SaveType, command.Value, command.Incr, ddl))
 }
 
 func getKV(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	namespace := p.ByName("namespace")
-	key := p.ByName("key")
-	value, err := core.GetKV(namespace, key)
+	value, err := core.GetKV(p.ByName("namespace"), p.ByName("key"))
 	if err != nil {
-		result(w, base.ServiceLayerErrorCode, nil, err)
+		reply(w, nil, err)
 		return
 	}
-	result(w, base.SuccessCode, value, nil)
+	reply(w, value, nil)
 }
 
 func deleteKV(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	err := forwardToLeader(w, r)
-	if err != nil {
-		result(w, base.ClusterInvocationErrorCode, nil, err)
+	if isLeader() {
+		forwardToLeader(w, r)
 		return
 	}
-	namespace := p.ByName("namespace")
-	key := p.ByName("key")
-	err = core.DeleteKV(namespace, key)
-	if err != nil {
-		result(w, base.ServiceLayerErrorCode, nil, err)
-		return
-	}
-	result(w, base.SuccessCode, nil, nil)
+	reply(w, nil, core.DeleteKV(p.ByName("namespace"), p.ByName("key")))
 }
 
 func listKV(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	namespace := p.ByName("namespace")
-	keyPrefix := p.ByName("keyPrefix")
-	offsetStr := r.URL.Query().Get("offset")
-	offset, err := strconv.ParseInt(offsetStr, 10, 64)
+	offset, err := strconv.ParseInt(r.URL.Query().Get("offset"), 10, 64)
 	if err != nil {
-		result(w, base.InterfaceLayerErrorCode, nil, err)
+		reply(w, nil, err)
 		return
 	}
-	countStr := r.URL.Query().Get("count")
-	count, err := strconv.ParseInt(countStr, 10, 64)
+	count, err := strconv.ParseInt(r.URL.Query().Get("count"), 10, 64)
 	if err != nil {
-		result(w, base.InterfaceLayerErrorCode, nil, err)
+		reply(w, nil, err)
 		return
 	}
-	kvs, err := core.ListKV(namespace, keyPrefix, offset, count)
+	kvs, err := core.ListKV(p.ByName("namespace"), p.ByName("keyPrefix"), offset, count)
 	if err != nil {
-		result(w, base.ServiceLayerErrorCode, nil, err)
+		reply(w, nil, err)
 		return
 	}
-	result(w, base.SuccessCode, kvs, nil)
+	reply(w, kvs, nil)
 }
 
-func forwardToLeader(w http.ResponseWriter, r *http.Request) error {
+func isLeader() bool {
 	// 如果该节点是leader，则无需转发请求
-	if core.GetLeader() == fmt.Sprintf("%s:%v", base.Config().Node.Addr, base.Config().Node.HttpPort) {
-		return nil
+	if core.GetLeader() == fmt.Sprintf("%s:%v", base.Config().Server.Addr, base.Config().Server.HttpPort) {
+		return true
 	} else {
-		return base.HttpForward(w, r, fmt.Sprintf("http://%s%s", core.GetLeader(), r.URL.RequestURI()))
+		return false
+	}
+}
+
+func forwardToLeader(w http.ResponseWriter, r *http.Request) {
+	err := base.HttpForward(w, r, fmt.Sprintf("http://%s%s", core.GetLeader(), r.URL.RequestURI()))
+	if err != nil {
+		base.LogHandler.Println(base.LogErrorTag, err)
 	}
 }

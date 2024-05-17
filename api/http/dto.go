@@ -20,21 +20,19 @@ type kvCommand struct {
 	TTL      int64  `json:"ttl"`
 }
 
-func result(w http.ResponseWriter, code int, data any, errorMsg error) {
-	var res = make(map[string]any, 3)
-	res["code"] = code
-	if code != base.SuccessCode {
-		res["error"] = errorMsg.Error()
-		base.LogHandler.Println(base.LogErrorTag, errorMsg)
+func reply(w http.ResponseWriter, result any, err error) {
+	var res = make(map[string]any, 2)
+	if err != nil {
+		res["error"] = err.Error()
+		base.LogHandler.Println(base.LogErrorTag, err)
 	}
-	if data != nil {
-		res["data"] = data
+	if result != nil {
+		res["result"] = result
 	}
 	marshal, _ := json.Marshal(res)
-	_, err := w.Write(marshal)
+	_, err = w.Write(marshal)
 	if err != nil {
 		base.LogHandler.Println(base.LogErrorTag, err)
-		return
 	}
 }
 

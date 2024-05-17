@@ -6,25 +6,24 @@ import (
 )
 
 type ConfigModel struct {
-	Node  NodeConfig  `yaml:"node" json:"node"`
-	Store StoreConfig `yaml:"store" json:"store"`
+	Server NodeConfig  `yaml:"server" json:"server"`
+	Join   NodeConfig  `yaml:"join" json:"join"`
+	Store  StoreConfig `yaml:"store" json:"store"`
 }
 
 type NodeConfig struct {
-	First    bool   `yaml:"first" json:"first"`
 	Addr     string `yaml:"addr" json:"addr"`
-	TcpPort  int    `yaml:"tcpPort" json:"tcpPort"`
-	HttpPort int    `yaml:"httpPort" json:"httpPort"`
+	TcpPort  int    `yaml:"tcp-port" json:"tcpPort"`
+	HttpPort int    `yaml:"http-port" json:"httpPort"`
 }
 
 type StoreConfig struct {
-	Data string `yaml:"data" json:"data"`
-	Log  string `yaml:"log" json:"log"`
+	Path string `yaml:"path" json:"path"`
 }
 
 // InitConfig 加载配置
 func InitConfig() error {
-	localConfigBytes := loadConfigFile("./config.yaml")
+	localConfigBytes := loadConfigFile("config.yaml")
 	return yaml.Unmarshal(localConfigBytes, &config)
 }
 

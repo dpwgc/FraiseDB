@@ -1,6 +1,7 @@
 package base
 
 import (
+	bytes2 "bytes"
 	"io"
 	"net/http"
 	"net/http/httputil"
@@ -19,6 +20,28 @@ func HttpGet(url string) ([]byte, error) {
 		Timeout: ConnectTimeout3 * time.Second,
 	}
 	resp, err := client.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer func(Body io.ReadCloser) {
+		err = Body.Close()
+		if err != nil {
+			LogHandler.Println(LogErrorTag, err)
+		}
+	}(resp.Body)
+
+	bytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
+}
+
+func HttpPost(url string, body []byte) ([]byte, error) {
+	client := http.Client{
+		Timeout: ConnectTimeout3 * time.Second,
+	}
+	resp, err := client.Post(url, "application/json", bytes2.NewReader(body))
 	if err != nil {
 		return nil, err
 	}

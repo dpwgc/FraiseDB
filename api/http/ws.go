@@ -21,7 +21,7 @@ func subscribe(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 
 	namespace := p.ByName("namespace")
 	if len(namespace) == 0 {
-		result(w, base.InterfaceLayerErrorCode, nil, errors.New("len(namespace) == 0"))
+		reply(w, nil, errors.New("len(namespace) == 0"))
 		return
 	}
 

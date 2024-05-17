@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
 	"fraisedb/base"
 	"fraisedb/cluster"
@@ -11,17 +12,33 @@ import (
 // InitNode 启动节点
 func InitNode() error {
 	base.Channel = make(chan []byte, 1000)
-	err := base.CreatePath(base.Config().Store.Data)
+	err := base.CreatePath(base.Config().Store.Path)
 	if err != nil {
 		return err
 	}
 	base.NodeDB = store.NewDB()
-	base.NodeRaft, err = cluster.StartNode(base.Config().Node.First,
-		fmt.Sprintf("%s:%v", base.Config().Node.Addr, base.Config().Node.TcpPort),
-		fmt.Sprintf("%s:%v", base.Config().Node.Addr, base.Config().Node.HttpPort),
-		fmt.Sprintf("%s/log", base.Config().Store.Data),
-		fmt.Sprintf("%s/stable", base.Config().Store.Data),
-		fmt.Sprintf("%s/snapshot", base.Config().Store.Data))
+	base.NodeRaft, err = cluster.StartNode(len(base.Config().Join.Addr) == 0,
+		fmt.Sprintf("%s:%v", base.Config().Server.Addr, base.Config().Server.TcpPort),
+		fmt.Sprintf("%s:%v", base.Config().Server.Addr, base.Config().Server.HttpPort),
+		fmt.Sprintf("%s/log", base.Config().Store.Path),
+		fmt.Sprintf("%s/stable", base.Config().Store.Path),
+		fmt.Sprintf("%s/snapshot", base.Config().Store.Path))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// JoinCluster 加入集群
+func JoinCluster() error {
+	if len(base.Config().Join.Addr) == 0 {
+		return nil
+	}
+	marshal, err := json.Marshal(base.Config().Server)
+	if err != nil {
+		return err
+	}
+	_, err = base.HttpPost(fmt.Sprintf("http://%s:%s/node", base.Config().Join.Addr, base.Config().Join.HttpPort), marshal)
 	if err != nil {
 		return err
 	}
